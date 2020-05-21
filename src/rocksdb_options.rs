@@ -1501,6 +1501,30 @@ impl ColumnFamilyOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_level0_stop_writes_trigger(self.inner) as u32 }
     }
 
+    pub fn set_capacity_warn_rate(&mut self, rate: c_double) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_capacity_warn_rate(self.inner, rate);
+        }
+    }
+
+    pub fn get_capacity_warn_rate(&self) -> f64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_get_capacity_warn_rate(self.inner) as f64
+        }
+    }
+
+    pub fn set_capacity_danger_rate(&mut self, rate: c_double) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_capacity_danger_rate(self.inner, rate);
+        }
+    }
+
+    pub fn get_capacity_danger_rate(&self) -> f64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_get_capacity_danger_rate(self.inner) as f64
+        }
+    }
+
     pub fn set_compaction_style(&mut self, style: crocksdb_ffi::DBCompactionStyle) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compaction_style(self.inner, style);

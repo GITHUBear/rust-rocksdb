@@ -621,6 +621,10 @@ extern "C" {
     pub fn crocksdb_options_get_level0_slowdown_writes_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_level0_stop_writes_trigger(options: *mut Options, no: c_int);
     pub fn crocksdb_options_get_level0_stop_writes_trigger(options: *mut Options) -> c_int;
+    pub fn crocksdb_options_set_capacity_warn_rate(options: *mut Options, rate: c_double);
+    pub fn crocksdb_options_get_capacity_warn_rate(options: *mut Options) -> c_double;
+    pub fn crocksdb_options_set_capacity_danger_rate(options: *mut Options, rate: c_double);
+    pub fn crocksdb_options_get_capacity_danger_rate(options: *mut Options) -> c_double;
     pub fn crocksdb_options_set_write_buffer_size(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_set_target_file_size_base(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_get_target_file_size_base(options: *const Options) -> u64;
