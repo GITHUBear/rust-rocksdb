@@ -938,6 +938,18 @@ impl DBOptions {
         }
     }
 
+    pub fn set_capacity_warn_rate(&mut self, rate: f64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_capacity_warn_rate(self.inner, rate);
+        }
+    }
+
+    pub fn set_capacity_danger_rate(&mut self, rate: f64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_capacity_danger_rate(self.inner, rate);
+        }
+    }
+
     pub fn set_max_log_file_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_log_file_size(self.inner, size as size_t);
