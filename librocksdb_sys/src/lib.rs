@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![feature(c_variadic)]
 
 extern crate bzip2_sys;
 extern crate libc;
@@ -798,6 +799,7 @@ extern "C" {
     pub fn crocksdb_options_get_db_path(options: *mut Options, idx: size_t) -> *const c_char;
     pub fn crocksdb_options_get_path_target_size(options: *mut Options, idx: size_t) -> u64;
     pub fn crocksdb_options_set_vector_memtable_factory(options: *mut Options, reserved_bytes: u64);
+    pub fn crocksdb_options_set_atomic_flush(option: *mut Options, enable: bool);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(
@@ -1211,6 +1213,13 @@ extern "C" {
     pub fn crocksdb_flush_cf(
         db: *mut DBInstance,
         cf: *mut DBCFHandle,
+        options: *const DBFlushOptions,
+        err: *mut *mut c_char,
+    );
+    pub fn crocksdb_flush_cfs(
+        db: *mut DBInstance,
+        cfs: *const *mut DBCFHandle,
+        num_cfs: size_t,
         options: *const DBFlushOptions,
         err: *mut *mut c_char,
     );
@@ -1714,13 +1723,19 @@ extern "C" {
         name: extern "C" fn(*mut c_void) -> *const c_char,
     ) -> *mut DBSliceTransform;
     pub fn crocksdb_slicetransform_destroy(transform: *mut DBSliceTransform);
+    pub fn crocksdb_logger_create(
+        state: *mut c_void,
+        destructor: extern "C" fn(*mut c_void),
+        logv: extern "C" fn(ctx: *mut c_void, log_level: DBInfoLogLevel, log: *const c_char),
+    ) -> *mut DBLogger;
+    pub fn crocksdb_create_env_logger(fname: *const libc::c_char, env: *mut DBEnv)
+        -> *mut DBLogger;
     pub fn crocksdb_create_log_from_options(
         path: *const c_char,
         options: *mut Options,
         err: *mut *mut c_char,
     ) -> *mut DBLogger;
     pub fn crocksdb_log_destroy(logger: *mut DBLogger);
-
     pub fn crocksdb_get_pinned(
         db: *mut DBInstance,
         readopts: *const DBReadOptions,
@@ -2144,6 +2159,8 @@ extern "C" {
     pub fn crocksdb_perf_context_env_lock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_unlock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_new_logger_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_encrypt_data_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_decrypt_data_nanos(ctx: *mut DBPerfContext) -> u64;
 
     pub fn crocksdb_get_iostats_context() -> *mut DBIOStatsContext;
     pub fn crocksdb_iostats_context_reset(ctx: *mut DBIOStatsContext);
@@ -2159,17 +2176,20 @@ extern "C" {
     pub fn crocksdb_iostats_context_logger_nanos(ctx: *mut DBIOStatsContext) -> u64;
 
     pub fn crocksdb_run_ldb_tool(argc: c_int, argv: *const *const c_char, opts: *const Options);
+    pub fn crocksdb_run_sst_dump_tool(
+        argc: c_int,
+        argv: *const *const c_char,
+        opts: *const Options,
+    );
 }
 
 // Titan
 extern "C" {
     pub fn ctitandb_open_column_families(
         path: *const c_char,
-        options: *const Options,
         titan_options: *const DBTitanDBOptions,
         num_column_families: c_int,
         column_family_names: *const *const c_char,
-        column_family_options: *const *const Options,
         titan_column_family_options: *const *const DBTitanDBOptions,
         column_family_handles: *const *mut DBCFHandle,
         err: *mut *mut c_char,
@@ -2177,7 +2197,6 @@ extern "C" {
 
     pub fn ctitandb_create_column_family(
         db: *mut DBInstance,
-        column_family_options: *const Options,
         titan_column_family_options: *const DBTitanDBOptions,
         column_family_name: *const c_char,
         err: *mut *mut c_char,
@@ -2186,10 +2205,15 @@ extern "C" {
     pub fn ctitandb_options_create() -> *mut DBTitanDBOptions;
     pub fn ctitandb_options_destroy(opts: *mut DBTitanDBOptions);
     pub fn ctitandb_options_copy(opts: *mut DBTitanDBOptions) -> *mut DBTitanDBOptions;
+    pub fn ctitandb_options_set_rocksdb_options(
+        opts: *mut DBTitanDBOptions,
+        rocksdb_opts: *const Options,
+    );
     pub fn ctitandb_get_titan_options_cf(
         db: *mut DBInstance,
         cf: *mut DBCFHandle,
     ) -> *mut DBTitanDBOptions;
+    pub fn ctitandb_get_titan_db_options(db: *mut DBInstance) -> *mut DBTitanDBOptions;
     pub fn ctitandb_options_dirname(opts: *mut DBTitanDBOptions) -> *const c_char;
     pub fn ctitandb_options_set_dirname(opts: *mut DBTitanDBOptions, name: *const c_char);
     pub fn ctitandb_options_min_blob_size(opts: *mut DBTitanDBOptions) -> u64;

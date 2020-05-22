@@ -83,11 +83,15 @@ fn ensure_default_cf_exists<'a>(
 
 fn split_descriptors<'a>(
     list: Vec<ColumnFamilyDescriptor<'a>>,
+    is_titan: bool,
 ) -> (Vec<&'a str>, Vec<ColumnFamilyOptions>) {
     let mut v1 = Vec::with_capacity(list.len());
     let mut v2 = Vec::with_capacity(list.len());
-    for d in list {
+    for mut d in list {
         v1.push(d.name);
+        if is_titan && d.options.titan_inner.is_null() {
+            d.options.set_titandb_options(&TitanDBOptions::new());
+        }
         v2.push(d.options);
     }
     (v1, v2)
@@ -541,7 +545,7 @@ impl DB {
     }
 
     fn open_cf_internal<'a, T>(
-        opts: DBOptions,
+        mut opts: DBOptions,
         path: &str,
         cfds: Vec<T>,
         ttls: &[i32],
@@ -570,7 +574,7 @@ impl DB {
         let mut ttls_vec = ttls.to_vec();
         ensure_default_cf_exists(&mut descs, &mut ttls_vec, !opts.titan_inner.is_null());
 
-        let (names, options) = split_descriptors(descs);
+        let (names, options) = split_descriptors(descs, !opts.titan_inner.is_null());
         let cstrings = build_cstring_list(&names);
 
         let cf_names: Vec<*const _> = cstrings.iter().map(|cs| cs.as_ptr()).collect();
@@ -581,7 +585,14 @@ impl DB {
             .collect();
         let titan_cf_options: Vec<_> = options
             .iter()
-            .map(|x| x.titan_inner as *const crocksdb_ffi::DBTitanDBOptions)
+            .map(|x| {
+                if !x.titan_inner.is_null() {
+                    unsafe {
+                        crocksdb_ffi::ctitandb_options_set_rocksdb_options(x.titan_inner, x.inner);
+                    }
+                }
+                x.titan_inner as *const crocksdb_ffi::DBTitanDBOptions
+            })
             .collect();
 
         let readonly = error_if_log_file_exist.is_some();
@@ -607,6 +618,9 @@ impl DB {
 
             let titan_options = opts.titan_inner;
             if !titan_options.is_null() {
+                unsafe {
+                    crocksdb_ffi::ctitandb_options_set_rocksdb_options(titan_options, db_options);
+                }
                 if error_if_log_file_exist.is_some() {
                     return Err("TitanDB doesn't support read only mode.".to_owned());
                 } else if with_ttl {
@@ -642,11 +656,9 @@ impl DB {
                     unsafe {
                         ffi_try!(ctitandb_open_column_families(
                             db_path,
-                            db_options,
                             titan_options,
                             db_cfs_count,
                             db_cf_ptrs,
-                            db_cf_opts,
                             titan_cf_opts,
                             db_cf_handles
                         ))
@@ -675,6 +687,16 @@ impl DB {
         }
         if db.is_null() {
             return Err(ERR_NULL_DB_ONINIT.to_owned());
+        }
+
+        unsafe {
+            // the options provided when opening db may sanitized, so get the latest options.
+            crocksdb_ffi::crocksdb_options_destroy(opts.inner);
+            opts.inner = crocksdb_ffi::crocksdb_get_db_options(db);
+            if !opts.titan_inner.is_null() {
+                crocksdb_ffi::ctitandb_options_destroy(opts.titan_inner);
+                opts.titan_inner = crocksdb_ffi::ctitandb_get_titan_db_options(db);
+            }
         }
 
         let cfs = names
@@ -847,7 +869,7 @@ impl DB {
     where
         T: Into<ColumnFamilyDescriptor<'a>>,
     {
-        let cfd = cfd.into();
+        let mut cfd = cfd.into();
         let cname = match CString::new(cfd.name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -863,9 +885,15 @@ impl DB {
                     cname_ptr
                 ))
             } else {
+                if cfd.options.titan_inner.is_null() {
+                    cfd.options.set_titandb_options(&TitanDBOptions::new());
+                }
+                crocksdb_ffi::ctitandb_options_set_rocksdb_options(
+                    cfd.options.titan_inner,
+                    cfd.options.inner,
+                );
                 ffi_try!(ctitandb_create_column_family(
                     self.inner,
-                    cfd.options.inner,
                     cfd.options.titan_inner,
                     cname_ptr
                 ))
@@ -1093,23 +1121,44 @@ impl DB {
     }
 
     /// Flush all memtable data.
-    /// If sync, the flush will wait until the flush is done.
-    pub fn flush(&self, sync: bool) -> Result<(), String> {
+    /// If wait, the flush will wait until the flush is done.
+    pub fn flush(&self, wait: bool) -> Result<(), String> {
         unsafe {
             let mut opts = FlushOptions::new();
-            opts.set_wait(sync);
+            opts.set_wait(wait);
             ffi_try!(crocksdb_flush(self.inner, opts.inner));
             Ok(())
         }
     }
 
     /// Flush all memtable data for specified cf.
-    /// If sync, the flush will wait until the flush is done.
-    pub fn flush_cf(&self, cf: &CFHandle, sync: bool) -> Result<(), String> {
+    /// If wait, the flush will wait until the flush is done.
+    pub fn flush_cf(&self, cf: &CFHandle, wait: bool) -> Result<(), String> {
         unsafe {
             let mut opts = FlushOptions::new();
-            opts.set_wait(sync);
+            opts.set_wait(wait);
             ffi_try!(crocksdb_flush_cf(self.inner, cf.inner, opts.inner));
+            Ok(())
+        }
+    }
+
+    /// Flushes multiple column families.
+    /// If atomic flush is not enabled, flush_cfs is equivalent to
+    /// calling flush_cf multiple times.
+    /// If atomic flush is enabled, flush_cfs will flush all column families
+    /// specified in `cfs` up to the latest sequence number at the time
+    /// when flush is requested.
+    pub fn flush_cfs(&self, cfs: &[&CFHandle], wait: bool) -> Result<(), String> {
+        unsafe {
+            let cfs: Vec<*mut _> = cfs.iter().map(|cf| cf.inner).collect();
+            let mut opts = FlushOptions::new();
+            opts.set_wait(wait);
+            ffi_try!(crocksdb_flush_cfs(
+                self.inner,
+                cfs.as_ptr(),
+                cfs.len(),
+                opts.inner
+            ));
             Ok(())
         }
     }
@@ -2747,6 +2796,21 @@ pub fn run_ldb_tool(ldb_args: &[String], opts: &DBOptions) {
     }
 }
 
+pub fn run_sst_dump_tool(sst_dump_args: &[String], opts: &DBOptions) {
+    unsafe {
+        let sst_dump_args_cstrs: Vec<_> = sst_dump_args
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect();
+        let args: Vec<_> = sst_dump_args_cstrs.iter().map(|s| s.as_ptr()).collect();
+        crocksdb_ffi::crocksdb_run_sst_dump_tool(
+            args.len() as i32,
+            args.as_ptr() as *const *const c_char,
+            opts.inner,
+        );
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;
@@ -3287,6 +3351,48 @@ mod test {
         db.put(b"key", b"value").unwrap();
         let seq2 = db.get_latest_sequence_number();
         assert!(seq2 > seq1);
+    }
+
+    #[test]
+    fn test_atomic_flush() {
+        let path = tempdir_with_prefix("_rust_rocksdb_test_atomic_flush");
+        let cfs = ["default", "cf1", "cf2", "cf3"];
+        let mut cfs_opts = vec![];
+        for _ in 0..cfs.len() {
+            cfs_opts.push(ColumnFamilyOptions::new());
+        }
+
+        {
+            let mut opts = DBOptions::new();
+            opts.create_if_missing(true);
+            opts.set_atomic_flush(true);
+            let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+            let wb = WriteBatch::new();
+            for (cf, cf_opts) in cfs.iter().zip(cfs_opts.iter().cloned()) {
+                if *cf != "default" {
+                    db.create_cf((*cf, cf_opts)).unwrap();
+                }
+                let handle = db.cf_handle(cf).unwrap();
+                wb.put_cf(handle, b"k", cf.as_bytes()).unwrap();
+            }
+            let mut options = WriteOptions::new();
+            options.disable_wal(true);
+            db.write_opt(&wb, &options).unwrap();
+            let handles: Vec<_> = cfs.iter().map(|name| db.cf_handle(name).unwrap()).collect();
+            db.flush_cfs(&handles, true).unwrap();
+        }
+
+        let opts = DBOptions::new();
+        let db = DB::open_cf(
+            opts,
+            path.path().to_str().unwrap(),
+            cfs.iter().map(|cf| *cf).zip(cfs_opts).collect(),
+        )
+        .unwrap();
+        for cf in &cfs {
+            let handle = db.cf_handle(cf).unwrap();
+            assert_eq!(db.get_cf(handle, b"k").unwrap().unwrap(), cf.as_bytes());
+        }
     }
 
     #[test]

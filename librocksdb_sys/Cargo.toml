@@ -24,6 +24,7 @@ jemalloc = ["jemalloc-sys"]
 # when not using with static-link right now in this crate.
 portable = ["libtitan_sys/portable"]
 sse = ["libtitan_sys/sse"]
+static_libcpp = []
 
 [build-dependencies]
 cc = "1.0.3"

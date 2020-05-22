@@ -28,6 +28,7 @@ use crocksdb_ffi::{
 };
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
+use logger::{new_logger, Logger};
 use merge_operator::MergeFn;
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
 use rocksdb::Env;
@@ -695,7 +696,9 @@ impl DBOptions {
     }
 
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
-        self.titan_inner = unsafe { crocksdb_ffi::ctitandb_options_copy(opts.inner) }
+        unsafe {
+            self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
+        }
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -1025,6 +1028,14 @@ impl DBOptions {
         Ok(())
     }
 
+    // Set the logger to options.
+    pub fn set_info_log<L: Logger>(&self, l: L) {
+        let logger = new_logger(l);
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_info_log(self.inner, logger);
+        }
+    }
+
     pub fn enable_pipelined_write(&self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_enable_pipelined_write(self.inner, v);
@@ -1080,6 +1091,12 @@ impl DBOptions {
                 sizes.as_ptr(),
                 num_paths as c_int,
             );
+        }
+    }
+
+    pub fn set_atomic_flush(&self, enable: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_atomic_flush(self.inner, enable);
         }
     }
 
@@ -1206,8 +1223,8 @@ impl ColumnFamilyOptions {
     }
 
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
-        if !opts.inner.is_null() {
-            self.titan_inner = unsafe { crocksdb_ffi::ctitandb_options_copy(opts.inner) }
+        unsafe {
+            self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
         }
     }
 

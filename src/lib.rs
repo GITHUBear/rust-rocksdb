@@ -40,13 +40,15 @@ pub use librocksdb_sys::{
     DBEntryType, DBInfoLogLevel, DBRateLimiterMode, DBRecoveryMode, DBStatisticsHistogramType,
     DBStatisticsTickerType, DBStatusPtr, DBTitanDBBlobRunMode, IndexType, WriteStallCondition,
 };
+pub use logger::Logger;
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
 pub use perf_context::{get_perf_level, set_perf_level, IOStatsContext, PerfContext, PerfLevel};
 pub use rocksdb::{
-    load_latest_options, run_ldb_tool, set_external_sst_file_global_seq_no, BackupEngine, CFHandle,
-    Cache, DBIterator, DBVector, Env, ExternalSstFileInfo, MapProperty, MemoryAllocator, Range,
-    SeekKey, SequentialFile, SstFileReader, SstFileWriter, Writable, WriteBatch, DB,
+    load_latest_options, run_ldb_tool, run_sst_dump_tool, set_external_sst_file_global_seq_no,
+    BackupEngine, CFHandle, Cache, DBIterator, DBVector, Env, ExternalSstFileInfo, MapProperty,
+    MemoryAllocator, Range, SeekKey, SequentialFile, SstFileReader, SstFileWriter, Writable,
+    WriteBatch, DB,
 };
 pub use rocksdb_options::{
     BlockBasedOptions, CColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
@@ -72,6 +74,7 @@ pub mod comparator;
 #[cfg(feature = "encryption")]
 mod encryption;
 mod event_listener;
+pub mod logger;
 pub mod merge_operator;
 mod metadata;
 mod perf_context;
