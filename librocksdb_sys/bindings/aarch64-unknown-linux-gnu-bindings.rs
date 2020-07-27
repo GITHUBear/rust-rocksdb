@@ -1934,28 +1934,6 @@ extern "C" {
     ) -> libc::c_int;
 }
 extern "C" {
-    pub fn crocksdb_options_set_capacity_warn_rate(
-        arg1: *mut crocksdb_options_t,
-        arg2: libc::c_double,
-    );
-}
-extern "C" {
-    pub fn crocksdb_options_get_capacity_warn_rate(
-        arg1: *mut crocksdb_options_t,
-    ) -> libc::c_double;
-}
-extern "C" {
-    pub fn crocksdb_options_set_capacity_danger_rate(
-        arg1: *mut crocksdb_options_t,
-        arg2: libc::c_double,
-    );
-}
-extern "C" {
-    pub fn crocksdb_options_get_capacity_danger_rate(
-        arg1: *mut crocksdb_options_t,
-    ) -> libc::c_double;
-}
-extern "C" {
     pub fn crocksdb_options_set_target_file_size_base(arg1: *mut crocksdb_options_t, arg2: u64);
 }
 extern "C" {

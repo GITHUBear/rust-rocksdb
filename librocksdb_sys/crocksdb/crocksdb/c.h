@@ -940,14 +940,6 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_stop_writes_trigger(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API int
 crocksdb_options_get_level0_stop_writes_trigger(crocksdb_options_t*);
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_options_set_capacity_warn_rate(crocksdb_options_t*, double);
-extern C_ROCKSDB_LIBRARY_API double
-crocksdb_options_get_capacity_warn_rate(crocksdb_options_t*);
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_options_set_capacity_danger_rate(crocksdb_options_t*, double);
-extern C_ROCKSDB_LIBRARY_API double
-crocksdb_options_get_capacity_danger_rate(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_target_file_size_base(
     crocksdb_options_t*, uint64_t);
 extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_get_target_file_size_base(

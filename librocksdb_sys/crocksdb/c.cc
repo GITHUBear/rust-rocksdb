@@ -2500,26 +2500,6 @@ int crocksdb_options_get_level0_stop_writes_trigger(
   return opt->rep.level0_stop_writes_trigger;
 }
 
-void crocksdb_options_set_capacity_warn_rate(
-        crocksdb_options_t* opt, double rate) {
-    opt->rep.capacity_warn_rate = rate;
-}
-
-double crocksdb_options_get_capacity_warn_rate(
-        crocksdb_options_t* opt) {
-    return opt->rep.capacity_warn_rate;
-}
-
-void crocksdb_options_set_capacity_danger_rate(
-        crocksdb_options_t* opt, double rate) {
-    opt->rep.capacity_danger_rate = rate;
-}
-
-double crocksdb_options_get_capacity_danger_rate(
-        crocksdb_options_t* opt) {
-    return opt->rep.capacity_danger_rate;
-}
-
 void crocksdb_options_set_wal_recovery_mode(crocksdb_options_t* opt,int mode) {
   opt->rep.wal_recovery_mode = static_cast<WALRecoveryMode>(mode);
 }
